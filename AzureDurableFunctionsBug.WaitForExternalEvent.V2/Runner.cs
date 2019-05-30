@@ -34,7 +34,7 @@ namespace AzureDurableFunctionsBug.WaitForExternalEvent.V2
                 ExpectedEvents = events
             };
 
-            logger.LogInformation("{Orchestration} is going to wait the following events:\n{Events}",
+            logger.LogInformation("{Orchestration} is going to be started with the following events:\n{Events}",
                 orchestration.Id,
                 orchestration.AllEventIds);
             await client.StartNewAsync(nameof(WaitForEvents), orchestration.Id, orchestration);
@@ -67,14 +67,28 @@ namespace AzureDurableFunctionsBug.WaitForExternalEvent.V2
             CancellationToken cancellationToken,
             ILogger logger)
         {
+            if (context.IsReplaying)
+            {
+                logger.LogInformation("{Orchestration} is being replayed.", context.InstanceId);
+            }
+
             var orchestration = context.GetInput<SomeOrchestration>();
-            logger.LogInformation("{Orchestration} is started.", orchestration.Id);
+            if (!context.IsReplaying)
+            {
+                logger.LogInformation("{Orchestration} is started.", orchestration.Id);
+            }
 
             var externalEvents = orchestration.ExpectedEvents.Select(x => context.WaitForExternalEvent<SomeEvent>(x.Id, TimeSpan.FromMinutes(1)));
-            logger.LogInformation("{Orchestration} is going to wait for events:\n{Events}", orchestration.Id, orchestration.AllEventIds);
+            if (!context.IsReplaying)
+            {
+                logger.LogInformation("{Orchestration} is going to wait for events:\n{Events}", orchestration.Id, orchestration.AllEventIds);
+            }
 
             await Task.WhenAll(externalEvents);
-            logger.LogInformation("{Orchestration} is finished.", orchestration.Id);
+            if (!context.IsReplaying)
+            {
+                logger.LogInformation("{Orchestration} is finished.", orchestration.Id);
+            }
         }
 
         public class SomeOrchestration
